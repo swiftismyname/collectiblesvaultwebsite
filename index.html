@@ -853,6 +853,60 @@
   .form .btn{justify-self:stretch;margin-top:1rem;width:100%}
   @media(min-width:560px){.form .btn{justify-self:start;width:auto}}
 
+  /* Form submission states */
+  .form.is-loading .btn{opacity:.55;pointer-events:none}
+  .form.is-loading .btn .arrow{animation:spin .9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .form-status{
+    display:none;
+    margin-top:1.25rem;
+    padding:1.1rem 1.25rem;
+    border:1px solid var(--rule);
+    font-family:var(--mono);font-size:.72rem;
+    letter-spacing:.18em;text-transform:uppercase;
+    color:var(--bone-dim);
+    text-align:left;
+  }
+  .form-status.show{display:block}
+  .form-status.is-error{border-color:#7a3a3a;color:#e6b8b8;background:rgba(122,58,58,.08)}
+  .form-status.is-success{border-color:var(--gold-soft);color:var(--gold-hi);background:rgba(201,166,99,.06)}
+
+  .form-success-panel{
+    display:none;
+    border:1px solid var(--gold-soft);
+    padding:2.5rem 1.75rem;
+    background:linear-gradient(160deg,rgba(201,166,99,.08),transparent);
+    text-align:center;
+    max-width:540px;margin:0 auto;
+  }
+  .form-success-panel.show{display:block;animation:rise .8s cubic-bezier(.2,.8,.2,1)}
+  .form-success-panel .ok-mark{
+    width:48px;height:48px;border:1px solid var(--gold);
+    transform:rotate(45deg);
+    display:grid;place-items:center;margin:0 auto 1.5rem;
+  }
+  .form-success-panel .ok-mark span{
+    transform:rotate(-45deg);color:var(--gold-hi);
+    font-family:var(--serif);font-size:1.4rem;
+  }
+  .form-success-panel h3{
+    font-family:var(--serif);font-size:1.6rem;font-weight:300;
+    color:var(--bone);margin-bottom:.75rem;
+  }
+  .form-success-panel h3 em{font-style:italic;color:var(--gold-hi)}
+  .form-success-panel p{
+    font-size:.92rem;color:var(--bone-dim);line-height:1.65;
+    max-width:36ch;margin:0 auto;
+  }
+  .form-success-panel .ref{
+    margin-top:1.5rem;padding-top:1.25rem;
+    border-top:1px solid var(--rule);
+    font-family:var(--mono);font-size:.65rem;
+    letter-spacing:.22em;color:var(--bone-mute);
+    text-transform:uppercase;
+  }
+
   /* ── FOOTER ──────────────────────────────── */
   footer{
     border-top:1px solid var(--rule);
@@ -1392,28 +1446,28 @@
     <h2 class="display">Inventory your <em>life's work.</em></h2>
     <p>Engagements are taken on a limited, by-invitation basis. Please share a brief outline of your collection and we will respond within two business days to arrange a private consultation.</p>
 
-    <form class="form" onsubmit="event.preventDefault(); alert('Thank you. A specialist will be in touch within two business days.'); this.reset();">
+    <form class="form" id="leadForm" novalidate>
       <div class="form-row">
         <div class="field">
           <label for="name">Name</label>
-          <input id="name" type="text" required autocomplete="name" />
+          <input id="name" name="name" type="text" required autocomplete="name" />
         </div>
         <div class="field">
           <label for="email">Email</label>
-          <input id="email" type="email" required autocomplete="email" inputmode="email" />
+          <input id="email" name="email" type="email" required autocomplete="email" inputmode="email" />
         </div>
       </div>
       <div class="form-row">
         <div class="field">
           <label for="phone">Telephone</label>
-          <input id="phone" type="tel" autocomplete="tel" inputmode="tel" />
+          <input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" />
         </div>
         <div class="field">
           <label for="cat">Primary Category</label>
-          <select id="cat">
+          <select id="cat" name="category">
             <option>Precious Metals</option>
             <option>Numismatic Coins</option>
-            <option>Bullion & Bars</option>
+            <option>Bullion &amp; Bars</option>
             <option>Rare Currency</option>
             <option>Mixed Collection</option>
           </select>
@@ -1421,12 +1475,22 @@
       </div>
       <div class="field">
         <label for="notes">A few words about your collection</label>
-        <textarea id="notes" placeholder="Approximate scope, location, or notable holdings…"></textarea>
+        <textarea id="notes" name="notes" placeholder="Approximate scope, location, or notable holdings…"></textarea>
       </div>
-      <button class="btn btn-primary" type="submit">
-        Submit Inquiry <span class="arrow">→</span>
+      <!-- honeypot for bots — must remain empty -->
+      <input type="text" name="company" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;opacity:0;pointer-events:none" aria-hidden="true" />
+      <button class="btn btn-primary" type="submit" id="leadSubmit">
+        <span class="btn-label">Submit Inquiry</span> <span class="arrow">→</span>
       </button>
+      <div class="form-status" id="leadStatus" role="status" aria-live="polite"></div>
     </form>
+
+    <div class="form-success-panel" id="leadSuccess" role="status" aria-live="polite">
+      <div class="ok-mark"><span>✓</span></div>
+      <h3>Thank you, <em id="successName">friend</em>.</h3>
+      <p>Your inquiry has been received in confidence. A specialist will be in touch within two business days to arrange a private consultation.</p>
+      <div class="ref">Reference · <span id="successRef">CV–0000</span></div>
+    </div>
   </div>
 </section>
 
@@ -1520,6 +1584,96 @@
     nav.style.boxShadow = y > 30 ? '0 1px 0 0 rgba(201,166,99,.1), 0 10px 30px -10px rgba(0,0,0,.6)' : 'none';
     lastY = y;
   }, { passive: true });
+
+  // ─────────────────────────────────────────────
+  //  LEAD FORM → Google Apps Script
+  //  Paste your deployed GAS web app URL below.
+  //  See setup notes in collectibles-vault-leads.gs
+  // ─────────────────────────────────────────────
+  const LEAD_ENDPOINT = 'PASTE_YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
+
+  const leadForm   = document.getElementById('leadForm');
+  const leadStatus = document.getElementById('leadStatus');
+  const leadBtn    = document.getElementById('leadSubmit');
+  const successPanel = document.getElementById('leadSuccess');
+  const successName  = document.getElementById('successName');
+  const successRef   = document.getElementById('successRef');
+
+  function setStatus(msg, kind) {
+    leadStatus.textContent = msg;
+    leadStatus.classList.remove('is-error','is-success','show');
+    if (msg) {
+      leadStatus.classList.add('show');
+      if (kind) leadStatus.classList.add('is-' + kind);
+    }
+  }
+
+  leadForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    // Honeypot: if bots fill this, silently "succeed"
+    if (leadForm.elements['company'].value) {
+      leadForm.style.display = 'none';
+      successPanel.classList.add('show');
+      return;
+    }
+
+    // Basic validation
+    const name  = leadForm.elements['name'].value.trim();
+    const email = leadForm.elements['email'].value.trim();
+    if (!name || !email) {
+      setStatus('Please provide your name and email.', 'error');
+      return;
+    }
+
+    // Build payload
+    const payload = {
+      name,
+      email,
+      phone: leadForm.elements['phone'].value.trim(),
+      category: leadForm.elements['category'].value,
+      notes: leadForm.elements['notes'].value.trim(),
+      source: 'collectibles-vault-website',
+      page: window.location.href,
+      userAgent: navigator.userAgent
+    };
+
+    // Loading state
+    leadForm.classList.add('is-loading');
+    setStatus('Securing your inquiry…', null);
+
+    try {
+      if (LEAD_ENDPOINT.startsWith('PASTE_')) {
+        throw new Error('Form endpoint not configured. Open the HTML file and set LEAD_ENDPOINT to your deployed Google Apps Script URL.');
+      }
+
+      // GAS web apps require text/plain or form-encoded to avoid CORS preflight
+      const res = await fetch(LEAD_ENDPOINT, {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.status !== 'ok') {
+        throw new Error(data.message || 'Submission failed. Please try again or email us directly.');
+      }
+
+      // Success — swap form for elegant confirmation
+      successName.textContent = name.split(' ')[0] || 'friend';
+      successRef.textContent = data.reference || 'CV–PENDING';
+      leadForm.style.display = 'none';
+      successPanel.classList.add('show');
+      // Scroll the success panel into view politely
+      successPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (err) {
+      console.error('[lead form]', err);
+      setStatus(err.message || 'Something went wrong. Please try again.', 'error');
+    } finally {
+      leadForm.classList.remove('is-loading');
+    }
+  });
 </script>
 
 </body>
